@@ -196,6 +196,8 @@ class Trainer:
         self.epochs = int(epochs)
         self.optimizer = optimizer
         self.evaluate_every = evaluate_every
+        self.evaluate_every_train = evaluate_every_train
+        self.evaluate_every_test = evaluate_every_test
         self.eval_report = eval_report
         self.evaluator_test = evaluator_test
         self.n_gpu = n_gpu
