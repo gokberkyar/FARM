@@ -315,13 +315,13 @@ class Trainer:
                         evalnr += 1
                         result = evaluator_dev.eval(self.model)
                         evaluator_dev.log_results(result, "Dev", self.global_step)
-                        if evaluate_every_train:
+                        if self.evaluate_every_train:
                             evaluator_train = Evaluator(
                             data_loader=train_data_loader, tasks=self.data_silo.processor.tasks, device=self.device, report=self.eval_report
                         )
                             result_train = evaluator_train.eval(self.model)
                             evaluator_train.log_results(result_train, "Train", self.global_step)
-                        if evaluate_every_test:
+                        if self.evaluate_every_test:
                             test_data_loader = self.data_silo.get_data_loader("test")
                             evaluator_test = Evaluator(
                             data_loader=test_data_loader, tasks=self.data_silo.processor.tasks, device=self.device, report=self.eval_report
