@@ -116,6 +116,8 @@ class Trainer:
         device,
         lr_schedule=None,
         evaluate_every=100,
+        evaluate_every_train=False,
+        evaluate_every_test=False,
         eval_report=True,
         use_amp=None,
         grad_acc_steps=1,
@@ -311,6 +313,20 @@ class Trainer:
                         evalnr += 1
                         result = evaluator_dev.eval(self.model)
                         evaluator_dev.log_results(result, "Dev", self.global_step)
+                        if evaluate_every_train:
+                            evaluator_train = Evaluator(
+                            data_loader=train_data_loader, tasks=self.data_silo.processor.tasks, device=self.device, report=self.eval_report
+                        )
+                            result_train = evaluator_train.eval(self.model)
+                            evaluator_train.log_results(result_train, "Train", self.global_step)
+                        if evaluate_every_test:
+                            test_data_loader = self.data_silo.get_data_loader("test")
+                            evaluator_test = Evaluator(
+                            data_loader=test_data_loader, tasks=self.data_silo.processor.tasks, device=self.device, report=self.eval_report
+                        )
+                            result_test= evaluator_train.eval(self.model)
+                            evaluator_test.log_results(result_test, "Test", self.global_step)
+                            
                         if self.early_stopping:
                             do_stopping, save_model, eval_value = self.early_stopping.check_stopping(result)
                             if save_model:
