@@ -324,7 +324,7 @@ class Trainer:
                             evaluator_test = Evaluator(
                             data_loader=test_data_loader, tasks=self.data_silo.processor.tasks, device=self.device, report=self.eval_report
                         )
-                            result_test= evaluator_train.eval(self.model)
+                            result_test= evaluator_test.eval(self.model)
                             evaluator_test.log_results(result_test, "Test", self.global_step)
                             
                         if self.early_stopping:
