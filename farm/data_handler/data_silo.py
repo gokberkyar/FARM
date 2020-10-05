@@ -757,7 +757,7 @@ class DataSiloForCrossVal:
 
     @classmethod
     def make(cls, datasilo, sets=["train", "dev", "test"], n_splits=5, shuffle=True, random_state=None,
-             stratified=True, n_neg_answers_per_question=1, n_inner_splits=None):
+             stratified=True, n_neg_answers_per_question=1, n_inner_splits=None,globalTest=None):
         """
         Create number of folds data-silo-like objects which can be used for training from the
         original data silo passed on.
@@ -799,8 +799,12 @@ class DataSiloForCrossVal:
             )
         elif "question_answering" in datasilo.processor.tasks and n_inner_splits is not None:
             raise NotImplementedError()
-        elif n_inner_splits is None:
+        elif n_inner_splits is None and globalTest is None:
             return cls._make(
+                datasilo, sets, n_splits, shuffle, random_state, stratified
+            )
+        elif n_inner_splits is None and globalTest is not None:
+            return cls._make_custom(
                 datasilo, sets, n_splits, shuffle, random_state, stratified
             )
         elif n_inner_splits is not None:
@@ -942,7 +946,55 @@ class DataSiloForCrossVal:
             ds_test = Subset(ds_all, test_idx)
             silos.append(DataSiloForCrossVal(datasilo, ds_train, ds_dev, ds_test))
         return silos
+    @staticmethod
+    def _make_custom(datasilo, sets=["train", "dev"], n_splits=5, shuffle=True,
+              random_state=None, stratified=True):
+        """
+        Create number of folds data-silo-like objects which can be used for training from the
+        original data silo passed on.
 
+        :param datasilo: the data silo that contains the original data
+        :param sets: which sets to use to create the xval folds
+        :param n_splits: number of folds to create
+        :param shuffle: shuffle each class' samples before splitting
+        :param random_state: random state for shuffling
+        :param stratified: if class stratification should be done
+        """
+        setstoconcat = [datasilo.data[setname] for setname in sets]
+                            
+        ds_all = ConcatDataset(setstoconcat)
+        ds_test =  ConcatDataset( [datasilo.data["test"]])
+        idxs = list(range(len(ds_all)))
+        global_testIDX = list(range(len(ds_test)))
+        
+        dev_split = datasilo.processor.dev_split
+        if stratified:
+            # get all the labels for stratification
+            ytensors = [t[3][0] for t in ds_all]
+            Y = torch.stack(ytensors)
+            xval = StratifiedKFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
+            xval_split = xval.split(idxs,Y)
+        else:
+            xval = KFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
+            xval_split = xval.split(idxs)
+        # for each fold create a DataSilo4Xval instance, where the training set is further
+        # divided into actual train and dev set
+        silos = []
+        for train_idx, test_idx in xval_split:
+            n_dev = int(dev_split * len(train_idx))
+            n_actual_train = len(train_idx) - n_dev
+            # TODO: this split into actual train and test set could/should also be stratified, for now
+            # we just do this by taking the first/last indices from the train set (which should be
+            # shuffled by default)
+            actual_train_idx = train_idx[:n_actual_train]
+            dev_idx = train_idx[n_actual_train:]
+            # create the actual datasets
+            ds_train = Subset(ds_all, actual_train_idx)
+            ds_dev = Subset(ds_all, dev_idx)
+            ds_test = Subset(ds_test, global_testIDX)
+            silos.append(DataSiloForCrossVal(datasilo, ds_train, ds_dev, ds_test))
+        return silos
+    
     @staticmethod
     def _split_for_qa(documents, id_index, n_splits=5, shuffle=True, random_state=None):
         keyfunc = lambda x: x[id_index][1]
